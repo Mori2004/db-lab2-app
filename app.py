@@ -122,3 +122,69 @@ def logout():
     return redirect(url_for("login"))
 
 @app.route("/todos/add", methods=["POST"])
+def add_todo():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    title = request.form.get("title", "").strip()
+    if not title:
+        flash("Title is required", "danger")
+    elif len(title) > 200:
+        flash("Title is too long", "danger")
+    else:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            sql = "INSERT INTO todos (user_id, title) VALUES (%s, %s);"
+            cursor.execute(sql, (session["user_id"], title))
+        conn.close()
+
+    return redirect(url_for("index"))
+
+@app.route("/todos/<int:todo_id>/edit", methods=["POST"])
+def edit_todo(todo_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    title = request.form.get("title", "").strip()
+    if not title:
+        flash("Title is required", "danger")
+    elif len(title) > 200:
+        flash("Title is too long", "danger")
+    else:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            sql = "UPDATE todos SET title = %s WHERE todo_id = %s AND user_id = %s;"
+            cursor.execute(sql, (title, todo_id, session["user_id"]))
+        conn.close()
+
+    return redirect(url_for("index"))
+
+@app.route("/todos/<int:todo_id>/toggle", methods=["POST"])
+def toggle_todo(todo_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    is_done = 1 if request.form.get("is_done") == "1" else 0
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        sql = "UPDATE todos SET is_done = %s WHERE todo_id = %s AND user_id = %s;"
+        cursor.execute(sql, (is_done, todo_id, session["user_id"]))
+    conn.close()
+
+    return redirect(url_for("index"))
+
+@app.route("/todos/<int:todo_id>/delete", methods=["POST"])
+def delete_todo(todo_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        sql = "DELETE FROM todos WHERE todo_id = %s AND user_id = %s;"
+        cursor.execute(sql, (todo_id, session["user_id"]))
+    conn.close()
+
+    return redirect(url_for("index"))
+
+if __name__ == "__main__":
+    app.run(debug=True)
