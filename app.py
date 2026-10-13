@@ -42,18 +42,18 @@ def register():
         password = request.form['password']
         confirm_password = request.form['confirm_password']
 
-        # 1. Check if email contains @ and a valid domain format
+        
         email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_regex, email):
             flash('Please enter a valid email address (e.g., user@example.com).', 'error')
             return redirect(url_for('register'))
 
-        # 2. Check if passwords match
+       
         if password != confirm_password:
             flash('Passwords do not match!', 'error')
             return redirect(url_for('register'))
 
-        # 3. Check if email already exists in database
+        
         conn = get_db_connection()
         with conn.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
@@ -62,7 +62,7 @@ def register():
                 flash('Email address is already registered!', 'error')
                 return redirect(url_for('register'))
 
-            # Hash password and insert user
+            
             hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
             cursor.execute(
                 "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
