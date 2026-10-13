@@ -34,55 +34,47 @@ def index():
 
     return render_template("index.html", todos=todos, user_name=session.get("user_name"))
 
-@app.route("/register", methods=["GET", "POST"])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip()
-        password = request.form.get("password", "")
-        confirm_password = request.form.get("confirm_password", "")
+    if request.method == 'POST':
+        name = request.form['name'].strip()
+        email = request.form['email'].strip()
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
 
-        errors = []
-        if not name:
-            errors.append("Name is required")
-        if not email:
-            errors.append("Email is required")
-        if not password:
-            errors.append("Password is required")
-        if not confirm_password:
-            errors.append("Confirm password is required")
-        if password and confirm_password and password != confirm_password:
-            errors.append("Passwords do not match")
+        # 1. Check if email contains @ and a valid domain format
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, email):
+            flash('Please enter a valid email address (e.g., user@example.com).', 'error')
+            return redirect(url_for('register'))
 
-        if errors:
-            for err in errors:
-                flash(err, "danger")
-            return render_template("register.html", name=name, email=email)
+        # 2. Check if passwords match
+        if password != confirm_password:
+            flash('Passwords do not match!', 'error')
+            return redirect(url_for('register'))
 
-        hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
+        # 3. Check if email already exists in database
         conn = get_db_connection()
-        try:
-            with conn.cursor() as cursor:
-                sql = "INSERT INTO users (email, name, password_hash) VALUES (%s, %s, %s);"
-                cursor.execute(sql, (email, name, hashed_password))
-                
-                cursor.execute("SELECT user_id FROM users WHERE email = %s;", (email,))
-                user = cursor.fetchone()
-                
-                session["user_id"] = user["user_id"]
-                session["user_name"] = name
-                return redirect(url_for("index"))
-        except pymysql.err.IntegrityError as e:
-            if e.args[0] == 1062:
-                flash("Email Already Exists", "danger")
-                return render_template("register.html", name=name, email=email)
-            raise e
-        finally:
-            conn.close()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            if cursor.fetchone():
+                conn.close()
+                flash('Email address is already registered!', 'error')
+                return redirect(url_for('register'))
 
-    return render_template("register.html")
+            # Hash password and insert user
+            hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute(
+                "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
+                (name, email, hashed_pw)
+            )
+            conn.commit()
+        conn.close()
 
+        flash('Registration successful! Please log in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
