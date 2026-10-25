@@ -22,9 +22,11 @@ def get_db_connection():
 
 
 
+
 # ==========================================
 # 1. TO-DO & AUTHENTICATION ROUTES (LAB 2)
 # ==========================================
+
 
 
 
@@ -52,11 +54,11 @@ def register():
 
         email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_regex, email):
-            flash('Please enter a valid email address (e.g., user@example.com).', 'error')
+            flash('Please enter a valid email address (e.g., user@example.com).', 'danger')
             return redirect(url_for('register'))
 
         if password != confirm_password:
-            flash('Passwords do not match!', 'error')
+            flash('Passwords do not match!', 'danger')
             return redirect(url_for('register'))
 
         conn = get_db_connection()
@@ -64,10 +66,11 @@ def register():
             cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
             if cursor.fetchone():
                 conn.close()
-                flash('Email address is already registered!', 'error')
+                flash('Email address is already registered!', 'danger')
                 return redirect(url_for('register'))
 
-            hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            # Fixed: Decoded the bytes to string so MySQL handles it cleanly
+            hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             cursor.execute(
                 "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
                 (name, email, hashed_pw)
@@ -99,7 +102,6 @@ def login():
 
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            # Fixed column names to match the registration insert statement
             sql = "SELECT id, name, password FROM users WHERE email = %s;"
             cursor.execute(sql, (email,))
             user = cursor.fetchone()
@@ -186,8 +188,6 @@ def delete_todo(todo_id):
     return redirect(url_for("index"))
 
 
-
-
 # ==========================================
 # 2. LIBRARY ROUTES (LAB 3 ADDITIONS)
 # ==========================================
@@ -202,6 +202,7 @@ def list_books():
         
     conn = get_db_connection()
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("SELECT * FROM BOOK")
         books = cursor.fetchall()
         cursor.execute("SELECT * FROM AUTHOR")
@@ -216,6 +217,7 @@ def list_authors():
         
     conn = get_db_connection()
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("SELECT * FROM AUTHOR")
         authors = cursor.fetchall()
     conn.close()
@@ -232,7 +234,9 @@ def add_book():
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("INSERT INTO BOOK (title, price, author_id) VALUES (%s, %s, %s)", (title, price, author_id))
+        conn.commit()
     conn.close()
     flash('Book added successfully!', 'success')
     return redirect(url_for('list_books'))
@@ -247,7 +251,9 @@ def add_author():
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("INSERT INTO AUTHOR (name, country) VALUES (%s, %s)", (name, country))
+        conn.commit()
     conn.close()
     flash('Author added successfully!', 'success')
     return redirect(url_for('list_authors'))
@@ -263,12 +269,15 @@ def edit_book(book_id):
         price = request.form['price']
         author_id = request.form['author_id']
         with conn.cursor() as cursor:
+            cursor.execute("USE library")
             cursor.execute("UPDATE BOOK SET title=%s, price=%s, author_id=%s WHERE book_id=%s", (title, price, author_id, book_id))
+            conn.commit()
         conn.close()
         flash('Book updated successfully!', 'success')
         return redirect(url_for('list_books'))
     
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("SELECT * FROM BOOK WHERE book_id=%s", (book_id,))
         book = cursor.fetchone()
         cursor.execute("SELECT * FROM AUTHOR")
@@ -286,12 +295,15 @@ def edit_author(author_id):
         name = request.form['name']
         country = request.form['country']
         with conn.cursor() as cursor:
+            cursor.execute("USE library")
             cursor.execute("UPDATE AUTHOR SET name=%s, country=%s WHERE author_id=%s", (name, country, author_id))
+            conn.commit()
         conn.close()
         flash('Author updated successfully!', 'success')
         return redirect(url_for('list_authors'))
     
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("SELECT * FROM AUTHOR WHERE author_id=%s", (author_id,))
         author = cursor.fetchone()
     conn.close()
@@ -304,7 +316,9 @@ def delete_book(book_id):
         
     conn = get_db_connection()
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("DELETE FROM BOOK WHERE book_id=%s", (book_id,))
+        conn.commit()
     conn.close()
     flash('Book deleted!', 'danger')
     return redirect(url_for('list_books'))
@@ -316,7 +330,9 @@ def delete_author(author_id):
         
     conn = get_db_connection()
     with conn.cursor() as cursor:
+        cursor.execute("USE library")
         cursor.execute("DELETE FROM AUTHOR WHERE author_id=%s", (author_id,))
+        conn.commit()
     conn.close()
     flash('Author deleted! Associated books deleted via ON DELETE CASCADE.', 'danger')
     return redirect(url_for('list_authors'))

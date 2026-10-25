@@ -10,14 +10,12 @@
                 <form action="{{ url_for('register') }}" method="POST">
                     <div class="mb-3">
                         <label for="name" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="name" name="name" required placeholder="John Doe">
+                        <input type="text" class="form-control" id="name" name="name" required>
                     </div>
 
                     <div class="mb-3">
                         <label for="email" class="form-label">Email Address</label>
-                        <!-- type="email" automatically requires '@' and a valid domain format -->
-                        <input type="email" class="form-control" id="email" name="email" required placeholder="name@example.com">
-                        <div class="form-text">Must be a valid email format containing '@' (e.g., user@example.com).</div>
+                        <input type="email" class="form-control" id="email" name="email" required>
                     </div>
 
                     <div class="mb-3">
