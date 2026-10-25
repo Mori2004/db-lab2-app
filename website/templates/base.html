@@ -3,8 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flask To-Do App</title>
-    <!-- Bootstrap 5 CSS -->
+    <title>Database Labs App</title>
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+        })();
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
@@ -12,9 +18,21 @@
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">TaskMaster App</a>
-            <div class="d-flex align-items-center">
-                <!-- Theme Toggle Button -->
+            <a class="navbar-brand" href="{{ url_for('index') }}">TaskMaster</a>
+            
+            <!-- NEW: Library Links for Lab 3 -->
+            {% if session.get('user_id') %}
+            <ul class="navbar-nav me-auto flex-row gap-3 ms-4">
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{{ url_for('list_books') }}">📚 Library Books</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{{ url_for('list_authors') }}">✍️ Authors</a>
+                </li>
+            </ul>
+            {% endif %}
+
+            <div class="d-flex align-items-center ms-auto">
                 <button class="btn btn-outline-light btn-sm me-3" id="themeToggleBtn" onclick="toggleTheme()">
                     🌙 Dark
                 </button>
@@ -32,7 +50,6 @@
 
     <!-- Main Content Container -->
     <div class="container mt-4">
-        <!-- Flash Alert Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -44,34 +61,30 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Child Page Injection Block -->
         {% block content %}{% endblock %}
     </div>
 
-    <!-- Dark/Light Theme Script -->
+    <!-- Theme Script -->
     <script>
-        function applyTheme(theme) {
-            document.documentElement.setAttribute('data-bs-theme', theme);
-            localStorage.setItem('theme', theme);
+        function updateButton(theme) {
             const btn = document.getElementById('themeToggleBtn');
             if (btn) {
                 btn.innerHTML = theme === 'dark' ? '☀️ Light' : '🌙 Dark';
                 btn.className = theme === 'dark' ? 'btn btn-outline-warning btn-sm me-3' : 'btn btn-outline-light btn-sm me-3';
             }
         }
-
         function toggleTheme() {
             const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            applyTheme(newTheme);
+            document.documentElement.setAttribute('data-bs-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateButton(newTheme);
         }
-
-        // Preserve saved theme across page reloads
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        applyTheme(savedTheme);
+        document.addEventListener('DOMContentLoaded', () => {
+            const activeTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+            updateButton(activeTheme);
+        });
     </script>
-
-    <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
