@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Library Authors</h2>
+
+<!-- Add Author Form -->
+<div class="card my-3 p-3">
+    <h4>Add New Author</h4>
+    <form action="{{ url_for('add_author') }}" method="POST" class="row g-3">
+        <div class="col-md-5">
+            <input type="text" name="name" class="form-control" placeholder="Author Name" required>
+        </div>
+        <div class="col-md-5">
+            <input type="text" name="country" class="form-control" placeholder="Country" required>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Add Author</button>
+        </div>
+    </form>
+</div>
+
+<!-- Authors Table -->
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Author ID</th>
+            <th>Name</th>
+            <th>Country</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for author in authors %}
+        <tr>
+            <td>{{ author.author_id }}</td>
+            <td>{{ author.name }}</td>
+            <td>{{ author.country }}</td>
+            <td>
+                <a href="{{ url_for('edit_author', author_id=author.author_id) }}" class="btn btn-sm btn-warning me-1">Edit</a>
+                <form action="{{ url_for('delete_author', author_id=author.author_id) }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Deleting author will delete all their books! Proceed?')">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
