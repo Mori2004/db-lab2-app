@@ -20,15 +20,9 @@ def get_db_connection():
         autocommit=True
     )
 
-
-
-
 # ==========================================
 # 1. TO-DO & AUTHENTICATION ROUTES (LAB 2)
 # ==========================================
-
-
-
 
 @app.route("/")
 def index():
@@ -63,16 +57,15 @@ def register():
 
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+            cursor.execute("SELECT user_id FROM users WHERE email = %s", (email,))
             if cursor.fetchone():
                 conn.close()
                 flash('Email address is already registered!', 'danger')
                 return redirect(url_for('register'))
 
-            # Fixed: Decoded the bytes to string so MySQL handles it cleanly
             hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             cursor.execute(
-                "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
+                "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
                 (name, email, hashed_pw)
             )
             conn.commit()
@@ -102,16 +95,16 @@ def login():
 
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            sql = "SELECT id, name, password FROM users WHERE email = %s;"
+            sql = "SELECT user_id, name, password_hash FROM users WHERE email = %s;"
             cursor.execute(sql, (email,))
             user = cursor.fetchone()
         conn.close()
 
-        if not user or not bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8")):
+        if not user or not bcrypt.checkpw(password.encode("utf-8"), user["password_hash"].encode("utf-8")):
             flash("Invalid email or password", "danger")
             return render_template("login.html", email=email)
 
-        session["user_id"] = user["id"]
+        session["user_id"] = user["user_id"]
         session["user_name"] = user["name"]
         return redirect(url_for("index"))
 
@@ -188,9 +181,13 @@ def delete_todo(todo_id):
     return redirect(url_for("index"))
 
 
+
+
+
 # ==========================================
 # 2. LIBRARY ROUTES (LAB 3 ADDITIONS)
 # ==========================================
+
 
 
 
