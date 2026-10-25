@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm mt-4">
+            <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4">Edit Author</h3>
+
+                <form action="{{ url_for('edit_author', author_id=author.author_id) }}" method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Author Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ author.name }}" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="country" class="form-label">Country</label>
+                        <input type="text" class="form-control" id="country" name="country" value="{{ author.country }}" required>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('list_authors') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-success">Update Author</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
