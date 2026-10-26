@@ -1,35 +1,43 @@
-# Database Lab 2: Login & To-Do Application
+# Database Labs: Flask & MySQL Web App
 
-## 1. Names
-* Member 1: [Omar Nassret] - [2304250]
-* Member 2: [Omar Osama] - [2304240]
+**Team Members:**
+* Omar Nassret (ID: 2304250)
+* Omar Osama (ID: 2304240)
 
-## 2. Stack
-* **Back End:**  Python (Flask)
-* **Front End:**  HTML, Bootstrap 5, JavaScript
-* **Database:**  MySQL
+This repository contains the complete deliverables for Database Labs 2 and 3. The project is a Python Flask web application integrated with multiple MySQL databases, featuring user authentication, a To-Do list, and a Library Management System. It also includes raw backend SQL scripts for a Company database schema.
 
-## 3. How to Run
-1. Run `database/schema.sql` in DBeaver to set up the database.
-2. Install Python dependencies: `pip install -r requirements.txt`
-3. Copy `.env.example` to `.env` and fill in my local MySQL password.
-4. Run the Flask server: `python app.py`
-5. Open browser at `http://127.0.0.1:5000`
+## 📂 Project Structure
 
-## 4. Requirements
-* R1: Register page with duplicate email check
-* R2: Login page with bcrypt authentication
-* R3: Protected route for private user lists
-* R4-R7: Add, edit, toggle done, delete to-dos with confirmation
-* R8: Form validation in browser and server
-* R9: Prepared statements
-* R10: Responsive layout
+- **`/website`**: Contains the core Flask application, HTML templates (Bootstrap 5), and dependencies.
+- **`/` (Root)**: Contains the SQL DDL/DML scripts and answers for Lab 3 (Company and Library databases).
 
-## 5. Answers
-(a) The todo_id comes from the user and another user could modify requests to another user task adding AND user_id = ? allow that a user can only alter their own tasks if removed any logged in user could edit or delete anyone else's tasks
+## 🚀 Features
 
-(b) MySQL rejects the query with Error 1452 (Foreign key constraint fails) this represents the Referential Integrity Constraint
+1. **Authentication System (Lab 2)**
+   - Secure user registration and login using `bcrypt` password hashing.
+   - Connected to the `registration` MySQL database.
 
-(c) Plaintext passwords expose credentials if the database leaks  bcrypt hashes prevent rainbow table attacks and are computationally slow
+2. **To-Do Task Manager (Lab 2)**
+   - Logged-in users can Create, Read, Update, and Delete (CRUD) personal tasks.
+   - Tasks are isolated per user via session management.
 
-(d) NOT NULL prevents NULL values but empty strings ("") or spaces are non-NULL Server checks are required to catch empty string input
+3. **Library Management System (Lab 3 - Part 2)**
+   - Fully dynamic CRUD interface for `BOOKS` and `AUTHORS`.
+   - Connected to the `library` MySQL database.
+   - Enforces relational constraints (e.g., deleting an author cascades to delete their books).
+   - image formate of PNJ is adedd for Author and Books cover
+
+4. **Company Schema (Lab 3 - Part 1)**
+   - Raw `DDL` and `DML` SQL scripts building the `company` database.
+   - Includes circular dependency resolution and foreign key constraint answers in `problem1_Answers.txt`.
+
+## 🛠️ Tech Stack
+- **Backend:** Python, Flask, PyMySQL, Bcrypt
+- **Frontend:** HTML5, Bootstrap 5.3, Jinja2
+- **Database:** MySQL (managed via DBeaver)
+
+## ⚙️ How to Run Locally
+
+1. **Install Dependencies:**
+   ```bash
+   pip install -r website/requirements.txt
