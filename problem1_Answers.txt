@@ -1,0 +1,21 @@
+Answers-->
+Q1.1: Insert a row in the DEPARTMENT table that references a row in the EMPLOYEE table. Then try to delete the referenced row. What will happen?
+SQL used DELETE FROM EMPLOYEE WHERE ssn = 101;
+
+Output Error Message-->
+ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`company`.`department`, CONSTRAINT `department_ibfk_1` FOREIGN KEY (`mgr_ssn`) REFERENCES `employee` (`ssn`))
+Explanation: MySQL prevents deletion because a child record (DEPARTMENT.mgr_ssn) relies on this primary key.
+---------------------------------------------------------------------------
+Q1.2: Insert a row in the PROJECT table that references a row in the DEPARTMENT table that doesn't exist yet. What will happen?
+SQL used INSERT INTO PROJECT (Pnumber, Pname, Plocation, Dno) VALUES (40, 'Project Delta', 'Suez', 99);
+
+Output Error Message-->
+ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`company`.`project`, CONSTRAINT `project_ibfk_1` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+Bec MySQL rejects the insertion because the foreign key value (99) does not exist in the referenced primary key table.
+---------------------------------------------------------------------------
+Q1.3: If mgr_ssn and Dno are both NOT NULL, how will you insert the first row in EMPLOYEE or DEPARTMENT?
+To resolve the circular dependency, you can temporarily disable foreign key constraint checking during initial insertion:
+SET FOREIGN_KEY_CHECKS = 0;
+INSERT INTO DEPARTMENT (Dnumber, Dname, mgr_ssn, mgr_start_date) VALUES (1, 'Research', 101, '2020-01-01');
+INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, Dno) VALUES (101, 'John', 'Doe', '1985-01-01', 'Alexandria', 'M', 50000.00, 1);
+SET FOREIGN_KEY_CHECKS = 1;
