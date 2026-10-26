@@ -3,12 +3,18 @@ import pymysql
 import re
 import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
+
+# Setup upload folder
+UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def get_db_connection():
     return pymysql.connect(
@@ -20,22 +26,23 @@ def get_db_connection():
         autocommit=True
     )
 
-# ==========================================
-# 1. TO-DO & AUTHENTICATION ROUTES (LAB 2)
-# ==========================================
+def save_image(file):
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return filename
+    return 'default.png'
+
 
 @app.route("/")
 def index():
     if "user_id" not in session:
         return redirect(url_for("login"))
-
     conn = get_db_connection()
     with conn.cursor() as cursor:
-        sql = "SELECT todo_id, title, is_done, created_at FROM todos WHERE user_id = %s ORDER BY todo_id DESC;"
-        cursor.execute(sql, (session["user_id"],))
+        cursor.execute("SELECT todo_id, title, is_done, created_at FROM todos WHERE user_id = %s ORDER BY todo_id DESC;", (session["user_id"],))
         todos = cursor.fetchall()
     conn.close()
-
     return render_template("index.html", todos=todos, user_name=session.get("user_name"))
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -48,7 +55,7 @@ def register():
 
         email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_regex, email):
-            flash('Please enter a valid email address (e.g., user@example.com).', 'danger')
+            flash('Invalid email format.', 'danger')
             return redirect(url_for('register'))
 
         if password != confirm_password:
@@ -60,20 +67,15 @@ def register():
             cursor.execute("SELECT user_id FROM users WHERE email = %s", (email,))
             if cursor.fetchone():
                 conn.close()
-                flash('Email address is already registered!', 'danger')
+                flash('Email already registered!', 'danger')
                 return redirect(url_for('register'))
 
             hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            cursor.execute(
-                "INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)",
-                (name, email, hashed_pw)
-            )
+            cursor.execute("INSERT INTO users (name, email, password_hash) VALUES (%s, %s, %s)", (name, email, hashed_pw))
             conn.commit()
         conn.close()
-
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('login'))
-
     return render_template('register.html')
 
 @app.route("/login", methods=["GET", "POST"])
@@ -81,22 +83,10 @@ def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
-
-        errors = []
-        if not email:
-            errors.append("Email is required")
-        if not password:
-            errors.append("Password is required")
-
-        if errors:
-            for err in errors:
-                flash(err, "danger")
-            return render_template("login.html", email=email)
-
+        
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            sql = "SELECT user_id, name, password_hash FROM users WHERE email = %s;"
-            cursor.execute(sql, (email,))
+            cursor.execute("SELECT user_id, name, password_hash FROM users WHERE email = %s;", (email,))
             user = cursor.fetchone()
         conn.close()
 
@@ -107,7 +97,6 @@ def login():
         session["user_id"] = user["user_id"]
         session["user_name"] = user["name"]
         return redirect(url_for("index"))
-
     return render_template("login.html")
 
 @app.route("/logout")
@@ -117,86 +106,38 @@ def logout():
 
 @app.route("/todos/add", methods=["POST"])
 def add_todo():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
+    if "user_id" not in session: return redirect(url_for("login"))
     title = request.form.get("title", "").strip()
-    if not title:
-        flash("Title is required", "danger")
-    elif len(title) > 200:
-        flash("Title is too long", "danger")
-    else:
+    if title:
         conn = get_db_connection()
         with conn.cursor() as cursor:
-            sql = "INSERT INTO todos (user_id, title) VALUES (%s, %s);"
-            cursor.execute(sql, (session["user_id"], title))
+            cursor.execute("INSERT INTO todos (user_id, title) VALUES (%s, %s);", (session["user_id"], title))
         conn.close()
-
-    return redirect(url_for("index"))
-
-@app.route("/todos/<int:todo_id>/edit", methods=["POST"])
-def edit_todo(todo_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
-    title = request.form.get("title", "").strip()
-    if not title:
-        flash("Title is required", "danger")
-    elif len(title) > 200:
-        flash("Title is too long", "danger")
-    else:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            sql = "UPDATE todos SET title = %s WHERE todo_id = %s AND user_id = %s;"
-            cursor.execute(sql, (title, todo_id, session["user_id"]))
-        conn.close()
-
     return redirect(url_for("index"))
 
 @app.route("/todos/<int:todo_id>/toggle", methods=["POST"])
 def toggle_todo(todo_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
+    if "user_id" not in session: return redirect(url_for("login"))
     is_done = 1 if request.form.get("is_done") == "1" else 0
     conn = get_db_connection()
     with conn.cursor() as cursor:
-        sql = "UPDATE todos SET is_done = %s WHERE todo_id = %s AND user_id = %s;"
-        cursor.execute(sql, (is_done, todo_id, session["user_id"]))
+        cursor.execute("UPDATE todos SET is_done = %s WHERE todo_id = %s AND user_id = %s;", (is_done, todo_id, session["user_id"]))
     conn.close()
-
     return redirect(url_for("index"))
 
 @app.route("/todos/<int:todo_id>/delete", methods=["POST"])
 def delete_todo(todo_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-
+    if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db_connection()
     with conn.cursor() as cursor:
-        sql = "DELETE FROM todos WHERE todo_id = %s AND user_id = %s;"
-        cursor.execute(sql, (todo_id, session["user_id"]))
+        cursor.execute("DELETE FROM todos WHERE todo_id = %s AND user_id = %s;", (todo_id, session["user_id"]))
     conn.close()
-
     return redirect(url_for("index"))
-
-
-
-
-
-# ==========================================
-# 2. LIBRARY ROUTES (LAB 3 ADDITIONS)
-# ==========================================
-
-
-
 
 
 @app.route('/books')
 def list_books():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
+    if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
@@ -209,9 +150,7 @@ def list_books():
 
 @app.route('/authors')
 def list_authors():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
+    if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
@@ -222,17 +161,17 @@ def list_authors():
 
 @app.route('/books/add', methods=['POST'])
 def add_book():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
+    if "user_id" not in session: return redirect(url_for("login"))
     title = request.form['title']
     price = request.form['price']
     author_id = request.form['author_id']
+    image_filename = save_image(request.files.get('image'))
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-        cursor.execute("INSERT INTO BOOK (title, price, author_id) VALUES (%s, %s, %s)", (title, price, author_id))
+        cursor.execute("INSERT INTO BOOK (title, price, author_id, image_filename) VALUES (%s, %s, %s, %s)", 
+                       (title, price, author_id, image_filename))
         conn.commit()
     conn.close()
     flash('Book added successfully!', 'success')
@@ -240,77 +179,24 @@ def add_book():
 
 @app.route('/authors/add', methods=['POST'])
 def add_author():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
+    if "user_id" not in session: return redirect(url_for("login"))
     name = request.form['name']
     country = request.form['country']
+    image_filename = save_image(request.files.get('image'))
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-        cursor.execute("INSERT INTO AUTHOR (name, country) VALUES (%s, %s)", (name, country))
+        cursor.execute("INSERT INTO AUTHOR (name, country, image_filename) VALUES (%s, %s, %s)", 
+                       (name, country, image_filename))
         conn.commit()
     conn.close()
     flash('Author added successfully!', 'success')
     return redirect(url_for('list_authors'))
 
-@app.route('/books/edit/<int:book_id>', methods=['GET', 'POST'])
-def edit_book(book_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
-    conn = get_db_connection()
-    if request.method == 'POST':
-        title = request.form['title']
-        price = request.form['price']
-        author_id = request.form['author_id']
-        with conn.cursor() as cursor:
-            cursor.execute("USE library")
-            cursor.execute("UPDATE BOOK SET title=%s, price=%s, author_id=%s WHERE book_id=%s", (title, price, author_id, book_id))
-            conn.commit()
-        conn.close()
-        flash('Book updated successfully!', 'success')
-        return redirect(url_for('list_books'))
-    
-    with conn.cursor() as cursor:
-        cursor.execute("USE library")
-        cursor.execute("SELECT * FROM BOOK WHERE book_id=%s", (book_id,))
-        book = cursor.fetchone()
-        cursor.execute("SELECT * FROM AUTHOR")
-        authors = cursor.fetchall()
-    conn.close()
-    return render_template('edit_book.html', book=book, authors=authors)
-
-@app.route('/authors/edit/<int:author_id>', methods=['GET', 'POST'])
-def edit_author(author_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
-    conn = get_db_connection()
-    if request.method == 'POST':
-        name = request.form['name']
-        country = request.form['country']
-        with conn.cursor() as cursor:
-            cursor.execute("USE library")
-            cursor.execute("UPDATE AUTHOR SET name=%s, country=%s WHERE author_id=%s", (name, country, author_id))
-            conn.commit()
-        conn.close()
-        flash('Author updated successfully!', 'success')
-        return redirect(url_for('list_authors'))
-    
-    with conn.cursor() as cursor:
-        cursor.execute("USE library")
-        cursor.execute("SELECT * FROM AUTHOR WHERE author_id=%s", (author_id,))
-        author = cursor.fetchone()
-    conn.close()
-    return render_template('edit_author.html', author=author)
-
 @app.route('/books/delete/<int:book_id>', methods=['POST'])
 def delete_book(book_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
+    if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
@@ -322,16 +208,14 @@ def delete_book(book_id):
 
 @app.route('/authors/delete/<int:author_id>', methods=['POST'])
 def delete_author(author_id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-        
+    if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
         cursor.execute("DELETE FROM AUTHOR WHERE author_id=%s", (author_id,))
         conn.commit()
     conn.close()
-    flash('Author deleted! Associated books deleted via ON DELETE CASCADE.', 'danger')
+    flash('Author deleted!', 'danger')
     return redirect(url_for('list_authors'))
 
 if __name__ == "__main__":
