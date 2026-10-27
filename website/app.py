@@ -33,7 +33,9 @@ def save_image(file):
         return filename
     return 'default.png'
 
-
+# ==========================================
+# 1. TO-DO & AUTHENTICATION ROUTES
+# ==========================================
 @app.route("/")
 def index():
     if "user_id" not in session:
@@ -134,7 +136,9 @@ def delete_todo(todo_id):
     conn.close()
     return redirect(url_for("index"))
 
-
+# ==========================================
+# 2. LIBRARY ROUTES (IMAGE UPLOADS ADDED)
+# ==========================================
 @app.route('/books')
 def list_books():
     if "user_id" not in session: return redirect(url_for("login"))
