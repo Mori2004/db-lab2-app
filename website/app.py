@@ -3,18 +3,12 @@ import pymysql
 import re
 import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
-
-# Setup upload folder
-UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def get_db_connection():
     return pymysql.connect(
@@ -25,13 +19,6 @@ def get_db_connection():
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True
     )
-
-def save_image(file):
-    if file and file.filename != '':
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return filename
-    return 'default.png'
 
 # ==========================================
 # 1. TO-DO & AUTHENTICATION ROUTES
@@ -136,8 +123,19 @@ def delete_todo(todo_id):
     conn.close()
     return redirect(url_for("index"))
 
+@app.route("/todos/<int:todo_id>/edit", methods=["POST"])
+def edit_todo(todo_id):
+    if "user_id" not in session: return redirect(url_for("login"))
+    new_title = request.form.get("title", "").strip()
+    if new_title:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("UPDATE todos SET title = %s WHERE todo_id = %s AND user_id = %s;", (new_title, todo_id, session["user_id"]))
+        conn.close()
+    return redirect(url_for("index"))
+
 # ==========================================
-# 2. LIBRARY ROUTES (IMAGE UPLOADS ADDED)
+# 2. LIBRARY ROUTES
 # ==========================================
 @app.route('/books')
 def list_books():
@@ -169,13 +167,12 @@ def add_book():
     title = request.form['title']
     price = request.form['price']
     author_id = request.form['author_id']
-    image_filename = save_image(request.files.get('image'))
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-        cursor.execute("INSERT INTO BOOK (title, price, author_id, image_filename) VALUES (%s, %s, %s, %s)", 
-                       (title, price, author_id, image_filename))
+        cursor.execute("INSERT INTO BOOK (title, price, author_id) VALUES (%s, %s, %s)", 
+                       (title, price, author_id))
         conn.commit()
     conn.close()
     flash('Book added successfully!', 'success')
@@ -186,13 +183,12 @@ def add_author():
     if "user_id" not in session: return redirect(url_for("login"))
     name = request.form['name']
     country = request.form['country']
-    image_filename = save_image(request.files.get('image'))
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-        cursor.execute("INSERT INTO AUTHOR (name, country, image_filename) VALUES (%s, %s, %s)", 
-                       (name, country, image_filename))
+        cursor.execute("INSERT INTO AUTHOR (name, country) VALUES (%s, %s)", 
+                       (name, country))
         conn.commit()
     conn.close()
     flash('Author added successfully!', 'success')
