@@ -20,14 +20,32 @@
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">TaskMaster</a>
             
-            <!-- NEW: Library Links for Lab 3 -->
+            <!-- Library Links (Lab 3 & Lab 4) -->
             {% if session.get('user_id') %}
-            <ul class="navbar-nav me-auto flex-row gap-3 ms-4">
+            <ul class="navbar-nav me-auto flex-row flex-wrap gap-2 ms-4">
                 <li class="nav-item">
-                    <a class="nav-link text-white" href="{{ url_for('list_books') }}">📚 Library Books</a>
+                    <a class="nav-link text-white" href="{{ url_for('list_books') }}">📚 Books</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link text-white" href="{{ url_for('list_authors') }}">✍️ Authors</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-info" href="{{ url_for('search_books') }}">🔍 Search (F2.1)</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-info" href="{{ url_for('catalogue') }}">📖 Catalogue (F2.2)</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-info" href="{{ url_for('reports') }}">📊 Reports (F2.3)</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-info" href="{{ url_for('loans') }}">🔄 Loans (F2.4)</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-info" href="{{ url_for('most_borrowed') }}">🏆 Top Borrowed (F2.5)</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-info" href="{{ url_for('authors_books') }}">🌍 Authors & Books (F2.6)</a>
                 </li>
             </ul>
             {% endif %}
