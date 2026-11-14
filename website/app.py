@@ -1,14 +1,33 @@
 import os
+import time
 import pymysql
 import re
 import bcrypt
 from flask import Flask, render_template, request, redirect, url_for, session, flash
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
+
+UPLOAD_FOLDER = os.path.join(app.root_path, "static", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_uploaded_image(file_storage):
+    if not file_storage or not file_storage.filename:
+        return "default.png"
+    if not allowed_file(file_storage.filename):
+        return "default.png"
+    safe_name = secure_filename(file_storage.filename)
+    unique_name = f"{int(time.time())}_{safe_name}"
+    file_storage.save(os.path.join(UPLOAD_FOLDER, unique_name))
+    return unique_name
 
 def get_db_connection():
     return pymysql.connect(
@@ -187,16 +206,17 @@ def add_book():
     author_id = request.form['author_id']
     publisher_id = request.form.get('publisher_id') or None
     category_id = request.form.get('category_id') or None
+    image_filename = save_uploaded_image(request.files.get('image'))
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
         cursor.execute(
             """
-            INSERT INTO BOOK (title, price, publish_year, author_id, publisher_id, category_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO BOOK (title, price, publish_year, author_id, publisher_id, category_id, image_filename)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
-            (title, price, publish_year, author_id, publisher_id, category_id)
+            (title, price, publish_year, author_id, publisher_id, category_id, image_filename)
         )
         conn.commit()
     conn.close()
@@ -206,14 +226,17 @@ def add_book():
 @app.route('/authors/add', methods=['POST'])
 def add_author():
     if "user_id" not in session: return redirect(url_for("login"))
-    name = request.form['name']
-    country = request.form['country']
+    name = request.form['name'].strip()
+    country = request.form['country'].strip()
+    image_filename = save_uploaded_image(request.files.get('image'))
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-        cursor.execute("INSERT INTO AUTHOR (name, country) VALUES (%s, %s)", 
-                       (name, country))
+        cursor.execute(
+            "INSERT INTO AUTHOR (name, country, image_filename) VALUES (%s, %s, %s)",
+            (name, country, image_filename)
+        )
         conn.commit()
     conn.close()
     flash('Author added successfully!', 'success')
