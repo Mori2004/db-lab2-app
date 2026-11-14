@@ -20,7 +20,9 @@ def get_db_connection():
         autocommit=True
     )
 
-
+# ==========================================
+# 1. TO-DO & AUTHENTICATION ROUTES
+# ==========================================
 @app.route("/")
 def index():
     if "user_id" not in session:
@@ -132,18 +134,38 @@ def edit_todo(todo_id):
         conn.close()
     return redirect(url_for("index"))
 
+# ==========================================
+# 2. LIBRARY CRUD ROUTES (LAB 3 & LAB 4)
+# ==========================================
 @app.route('/books')
 def list_books():
     if "user_id" not in session: return redirect(url_for("login"))
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-        cursor.execute("SELECT * FROM BOOK")
+        cursor.execute("""
+            SELECT b.*, a.name AS author_name, p.name AS publisher_name, c.name AS category_name
+            FROM BOOK b
+            JOIN AUTHOR a ON b.author_id = a.author_id
+            LEFT JOIN PUBLISHER p ON b.publisher_id = p.publisher_id
+            LEFT JOIN CATEGORY c ON b.category_id = c.category_id
+            ORDER BY b.book_id ASC
+        """)
         books = cursor.fetchall()
-        cursor.execute("SELECT * FROM AUTHOR")
+        cursor.execute("SELECT * FROM AUTHOR ORDER BY name ASC")
         authors = cursor.fetchall()
+        cursor.execute("SELECT * FROM PUBLISHER ORDER BY name ASC")
+        publishers = cursor.fetchall()
+        cursor.execute("SELECT * FROM CATEGORY ORDER BY name ASC")
+        categories = cursor.fetchall()
     conn.close()
-    return render_template('books.html', books=books, authors=authors)
+    return render_template(
+        'books.html',
+        books=books,
+        authors=authors,
+        publishers=publishers,
+        categories=categories
+    )
 
 @app.route('/authors')
 def list_authors():
@@ -159,15 +181,23 @@ def list_authors():
 @app.route('/books/add', methods=['POST'])
 def add_book():
     if "user_id" not in session: return redirect(url_for("login"))
-    title = request.form['title']
+    title = request.form['title'].strip()
     price = request.form['price']
+    publish_year = request.form.get('publish_year') or None
     author_id = request.form['author_id']
+    publisher_id = request.form.get('publisher_id') or None
+    category_id = request.form.get('category_id') or None
     
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-        cursor.execute("INSERT INTO BOOK (title, price, author_id) VALUES (%s, %s, %s)", 
-                       (title, price, author_id))
+        cursor.execute(
+            """
+            INSERT INTO BOOK (title, price, publish_year, author_id, publisher_id, category_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (title, price, publish_year, author_id, publisher_id, category_id)
+        )
         conn.commit()
     conn.close()
     flash('Book added successfully!', 'success')
@@ -213,6 +243,9 @@ def delete_author(author_id):
     flash('Author deleted!', 'danger')
     return redirect(url_for('list_authors'))
 
+# ==========================================
+# 3. LAB 4 - PART II SEARCH & REPORT ROUTES
+# ==========================================
 @app.route('/search-books', methods=['GET'])
 def search_books():
     if "user_id" not in session: return redirect(url_for("login"))
@@ -227,7 +260,7 @@ def search_books():
         cursor.execute("SELECT * FROM CATEGORY ORDER BY name ASC")
         categories = cursor.fetchall()
 
-        
+        # Prepared statement with placeholders (%s) for F2.1 Bonus
         sql = """
             SELECT b.book_id, b.title, b.price, b.publish_year,
                    a.name AS author_name, p.name AS publisher_name, c.name AS category_name
@@ -299,7 +332,7 @@ def reports():
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-       
+        # F2.3 (a)
         cursor.execute("""
             SELECT c.name AS category_name, COUNT(b.book_id) AS book_count, AVG(b.price) AS avg_price
             FROM CATEGORY c
@@ -308,7 +341,7 @@ def reports():
         """)
         category_stats = cursor.fetchall()
 
-      
+        # F2.3 (b)
         cursor.execute("""
             SELECT a.author_id, a.name AS author_name, COUNT(b.book_id) AS book_count
             FROM AUTHOR a
@@ -318,7 +351,7 @@ def reports():
         """)
         prolific_authors = cursor.fetchall()
 
-       
+        # F2.3 (c)
         cursor.execute("""
             SELECT SUM(price) AS total_price, MIN(price) AS smallest_price, MAX(price) AS largest_price
             FROM BOOK
@@ -339,7 +372,7 @@ def loans():
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-      
+        # F2.4 (a)
         cursor.execute("""
             SELECT l.loan_id, b.title AS book_title, m.name AS member_name, l.loan_date
             FROM LOAN l
@@ -349,7 +382,7 @@ def loans():
         """)
         unreturned_loans = cursor.fetchall()
 
-       
+        # F2.4 (b)
         cursor.execute("""
             SELECT m.member_id, m.name, m.email, m.join_date
             FROM MEMBER m
@@ -358,7 +391,7 @@ def loans():
         """)
         inactive_members = cursor.fetchall()
 
-       
+        # F2.4 (c)
         cursor.execute("""
             SELECT b.book_id, b.title, b.price, b.publish_year
             FROM BOOK b
@@ -381,7 +414,7 @@ def most_borrowed():
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-       
+        # F2.5 (a)
         cursor.execute("""
             SELECT b.book_id, b.title, COUNT(l.loan_id) AS loan_count
             FROM BOOK b
@@ -392,7 +425,7 @@ def most_borrowed():
         """)
         top_books = cursor.fetchall()
 
-      
+        # F2.5 (b)
         cursor.execute("""
             SELECT m.member_id, m.name, m.email, COUNT(l.loan_id) AS loan_count
             FROM MEMBER m
@@ -412,7 +445,7 @@ def authors_books():
     conn = get_db_connection()
     with conn.cursor() as cursor:
         cursor.execute("USE library")
-      
+        # F2.6 (a)
         cursor.execute("""
             SELECT a.author_id, a.name, a.country, COUNT(b.book_id) AS book_count
             FROM AUTHOR a
@@ -421,7 +454,7 @@ def authors_books():
         """)
         author_counts = cursor.fetchall()
 
-       
+        # F2.6 (b)
         cursor.execute("""
             SELECT b.book_id, b.title, a.name AS author_name, p.name AS publisher_name, a.country
             FROM BOOK b
