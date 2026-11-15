@@ -1,21 +1,277 @@
-Answers-->
-Q1.1: Insert a row in the DEPARTMENT table that references a row in the EMPLOYEE table. Then try to delete the referenced row. What will happen?
-SQL used DELETE FROM EMPLOYEE WHERE ssn = 101;
+===========================================================================
+PART I - PROBLEM 1: COMPANY DATABASE ANSWERS (LAB 4)
+===========================================================================
 
-Output Error Message-->
-ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`company`.`department`, CONSTRAINT `department_ibfk_1` FOREIGN KEY (`mgr_ssn`) REFERENCES `employee` (`ssn`))
-Explanation: MySQL prevents deletion because a child record (DEPARTMENT.mgr_ssn) relies on this primary key.
 ---------------------------------------------------------------------------
-Q1.2: Insert a row in the PROJECT table that references a row in the DEPARTMENT table that doesn't exist yet. What will happen?
-SQL used INSERT INTO PROJECT (Pnumber, Pname, Plocation, Dno) VALUES (40, 'Project Delta', 'Suez', 99);
+Q1.1 INSERT
+---------------------------------------------------------------------------
+-- 1) Insert a new employee in an existing department (Dno = 2):
+INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, super_ssn, Dno)
+VALUES (107, 'Kareem', 'Adel', '2002-07-19', '33 Maadi, Cairo', 'M', 3900.00, 105, 2);
 
-Output Error Message-->
-ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`company`.`project`, CONSTRAINT `project_ibfk_1` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
-Bec MySQL rejects the insertion because the foreign key value (99) does not exist in the referenced primary key table.
+-- 2) Insert a new project of that department (Dno = 2):
+INSERT INTO PROJECT (Pnumber, Pname, Plocation, Dno)
+VALUES (50, 'Project Epsilon', 'Cairo', 2);
+
+-- 3) Show both rows with SELECT:
+SELECT * FROM EMPLOYEE WHERE ssn = 107;
+Output:
+ssn | fname  | lname | bdate      | address         | gender | salary  | super_ssn | Dno
+107 | Kareem | Adel  | 2002-07-19 | 33 Maadi, Cairo | M      | 3900.00 | 105       | 2
+
+SELECT * FROM PROJECT WHERE Pnumber = 50;
+Output:
+Pnumber | Pname           | Plocation | Dno
+50      | Project Epsilon | Cairo     | 2
+
+-- 4) Try to insert an employee whose Dno does not exist (Dno = 99):
+INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, super_ssn, Dno)
+VALUES (108, 'Ali', 'Hassan', '2001-02-10', '10 Giza St, Giza', 'M', 4000.00, 101, 99);
+
+Output Error Message:
+ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`company`.`employee`, CONSTRAINT `employee_ibfk_1` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+Explanation: MySQL rejects the INSERT because Dno = 99 does not exist in the parent table DEPARTMENT(Dnumber).
+
 ---------------------------------------------------------------------------
-Q1.3: If mgr_ssn and Dno are both NOT NULL, how will you insert the first row in EMPLOYEE or DEPARTMENT?
-To resolve the circular dependency, you can temporarily disable foreign key constraint checking during initial insertion:
-SET FOREIGN_KEY_CHECKS = 0;
-INSERT INTO DEPARTMENT (Dnumber, Dname, mgr_ssn, mgr_start_date) VALUES (1, 'Research', 101, '2020-01-01');
-INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, Dno) VALUES (101, 'John', 'Doe', '1985-01-01', 'Alexandria', 'M', 50000.00, 1);
-SET FOREIGN_KEY_CHECKS = 1;
+Q1.2 UPDATE
+---------------------------------------------------------------------------
+-- (a) Give a 10% raise to every employee of one department (Dno = 2), then show new salaries:
+UPDATE EMPLOYEE SET salary = salary * 1.10 WHERE Dno = 2;
+
+SELECT ssn, fname, lname, Dno, salary FROM EMPLOYEE WHERE Dno = 2;
+Output:
+ssn | fname  | lname  | Dno | salary
+105 | Mazen  | Khaled | 2   | 5720.00
+106 | Shahd  | Magdy  | 2   | 3960.00
+107 | Kareem | Adel   | 2   | 4290.00
+
+-- (b) Change the location of one project (Pnumber = 40):
+UPDATE PROJECT SET Plocation = 'Alexandria' WHERE Pnumber = 40;
+
+SELECT * FROM PROJECT WHERE Pnumber = 40;
+Output:
+Pnumber | Pname         | Plocation  | Dno
+40      | Project Delta | Alexandria | 3
+
+-- (c) Try to change the Dno of an employee to a department that does not exist (Dno = 99):
+UPDATE EMPLOYEE SET Dno = 99 WHERE ssn = 107;
+
+Output Error Message:
+ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`company`.`employee`, CONSTRAINT `employee_ibfk_1` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+Explanation: MySQL blocks the UPDATE because Dno = 99 violates the foreign key constraint referencing DEPARTMENT(Dnumber).
+
+---------------------------------------------------------------------------
+Q1.3 DELETE
+---------------------------------------------------------------------------
+-- (a) Delete one dependent and one WORKS_ON row:
+DELETE FROM DEPENDENT WHERE essn = 105 AND dependent_name = 'Salma';
+DELETE FROM WORKS_ON WHERE essn = 106 AND Pno = 30;
+Output:
+Query OK, 1 row affected (for each DELETE).
+
+-- (b) Try to delete a department that still has employees (Dnumber = 2):
+DELETE FROM DEPARTMENT WHERE Dnumber = 2;
+
+Output Error Message:
+ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails (`company`.`employee`, CONSTRAINT `employee_ibfk_1` FOREIGN KEY (`Dno`) REFERENCES `department` (`Dnumber`))
+Explanation & Removal Order: MySQL prevents deleting Department 2 while employees/projects still reference it. To delete Department 2 safely, you must first remove or reassign dependent child rows in order:
+1) Delete rows in DEPENDENT and WORKS_ON for employees of Dno = 2 (or reassign/delete those employees).
+2) Delete or reassign rows in PROJECT where Dno = 2 (and any WORKS_ON rows referencing those projects).
+3) Update/remove any super_ssn references pointing to employees of Dno = 2, then delete those EMPLOYEE rows.
+4) Finally, execute DELETE FROM DEPARTMENT WHERE Dnumber = 2;.
+
+-- (c) Transaction test with DELETE without WHERE and ROLLBACK:
+START TRANSACTION;
+DELETE FROM DEPENDENT;
+SELECT * FROM DEPENDENT;
+-- Output after DELETE: Empty set (0 rows)
+ROLLBACK;
+SELECT * FROM DEPENDENT;
+-- Output after ROLLBACK:
+essn | dependent_name | gender | bdate      | relationship
+101  | Nour           | F      | 2018-08-22 | Daughter
+101  | Youssef        | M      | 2015-04-10 | Son
+Explanation: DELETE without WHERE removed all remaining rows in DEPENDENT inside the active transaction, and ROLLBACK undid the uncommitted deletion and restored those rows.
+
+---------------------------------------------------------------------------
+Q1.4 WHERE, DISTINCT
+---------------------------------------------------------------------------
+-- (a) Employees earning between 3000 and 6000 living in Alexandria, highest salary first:
+SELECT fname, lname, salary
+FROM EMPLOYEE
+WHERE salary BETWEEN 3000 AND 6000
+  AND address LIKE '%Alexandria%'
+ORDER BY salary DESC;
+
+Output:
+fname  | lname   | salary
+Mohsen | Mahmoud | 5500.00
+Omar   | Nassret | 4800.00
+Omar   | Osama   | 4200.00
+
+-- (b) Employees that have no supervisor:
+SELECT ssn, fname, lname
+FROM EMPLOYEE
+WHERE super_ssn IS NULL;
+
+Output:
+ssn | fname  | lname
+101 | Mohsen | Mahmoud
+
+-- (c) Department numbers (Dno) that have at least one employee, each written once:
+SELECT DISTINCT Dno
+FROM EMPLOYEE
+WHERE Dno IS NOT NULL;
+
+Output:
+Dno
+1
+2
+
+---------------------------------------------------------------------------
+Q1.5 Aggregation
+---------------------------------------------------------------------------
+SELECT COUNT(*) AS total_employees,
+       SUM(salary) AS total_salary,
+       AVG(salary) AS average_salary,
+       MIN(salary) AS smallest_salary,
+       MAX(salary) AS largest_salary
+FROM EMPLOYEE;
+
+Output:
+total_employees | total_salary | average_salary | smallest_salary | largest_salary
+7               | 31270.00     | 4467.142857    | 2800.00         | 5720.00
+
+---------------------------------------------------------------------------
+Q1.6 GROUP BY
+---------------------------------------------------------------------------
+SELECT Dno, COUNT(*) AS num_employees, AVG(salary) AS avg_salary
+FROM EMPLOYEE
+GROUP BY Dno;
+
+Output:
+Dno | num_employees | avg_salary
+1   | 4             | 4325.000000
+2   | 3             | 4656.666667
+
+---------------------------------------------------------------------------
+Q1.7 HAVING
+---------------------------------------------------------------------------
+-- (a) Departments that have more than 2 employees:
+SELECT Dno, COUNT(*) AS num_employees
+FROM EMPLOYEE
+GROUP BY Dno
+HAVING COUNT(*) > 2;
+
+Output:
+Dno | num_employees
+1   | 4
+2   | 3
+
+-- (b) Departments with more than 2 employees whose salary is above 3000:
+SELECT Dno, COUNT(*) AS high_paid_employees
+FROM EMPLOYEE
+WHERE salary > 3000
+GROUP BY Dno
+HAVING COUNT(*) > 2;
+
+Output:
+Dno | high_paid_employees
+1   | 3
+2   | 3
+
+Explanation: WHERE filters individual rows before grouping (and cannot use aggregate functions), whereas HAVING filters entire groups after GROUP BY has been computed (and can use aggregate functions like COUNT(*)).
+
+---------------------------------------------------------------------------
+Q1.8 JOIN
+---------------------------------------------------------------------------
+SELECT CONCAT(e.fname, ' ', e.lname) AS full_name, d.Dname AS department_name
+FROM EMPLOYEE e
+JOIN DEPARTMENT d ON e.Dno = d.Dnumber;
+
+Output:
+full_name      | department_name
+Mohsen Mahmoud | Research
+Omar Osama     | Research
+Omar Nassret   | Research
+Mariam Ahmed   | Research
+Mazen Khaled   | Administration
+Shahd Magdy    | Administration
+Kareem Adel    | Administration
+
+---------------------------------------------------------------------------
+Q1.9 JOIN of three tables
+---------------------------------------------------------------------------
+SELECT e.lname, p.Pname, w.hours
+FROM WORKS_ON w
+JOIN EMPLOYEE e ON w.essn = e.ssn
+JOIN PROJECT p ON w.Pno = p.Pnumber;
+
+Output:
+lname   | Pname         | hours
+Mahmoud | Project Alpha | 15.00
+Osama   | Project Alpha | 12.50
+Osama   | Project Beta  | 10.00
+Nassret | Project Alpha | 14.00
+Nassret | Project Beta  | 11.50
+Ahmed   | Project Beta  | 8.00
+Khaled  | Project Gamma | 16.00
+
+---------------------------------------------------------------------------
+Q1.10 LEFT JOIN
+---------------------------------------------------------------------------
+-- (a) Every department with its number of employees, including departments with 0:
+SELECT d.Dnumber, d.Dname, COUNT(e.ssn) AS employee_count
+FROM DEPARTMENT d
+LEFT JOIN EMPLOYEE e ON d.Dnumber = e.Dno
+GROUP BY d.Dnumber, d.Dname;
+
+Output:
+Dnumber | Dname          | employee_count
+1       | Research       | 4
+2       | Administration | 3
+3       | Headquarters   | 0
+
+-- (b) Projects that nobody works on:
+SELECT p.Pnumber, p.Pname, p.Plocation
+FROM PROJECT p
+LEFT JOIN WORKS_ON w ON p.Pnumber = w.Pno
+WHERE w.essn IS NULL;
+
+Output:
+Pnumber | Pname           | Plocation
+40      | Project Delta   | Alexandria
+50      | Project Epsilon | Cairo
+
+---------------------------------------------------------------------------
+Q1.11 Self join
+---------------------------------------------------------------------------
+SELECT CONCAT(e.fname, ' ', e.lname) AS employee_name,
+       CONCAT(s.fname, ' ', s.lname) AS supervisor_name
+FROM EMPLOYEE e
+LEFT JOIN EMPLOYEE s ON e.super_ssn = s.ssn;
+
+Output:
+employee_name  | supervisor_name
+Mohsen Mahmoud | NULL
+Omar Osama     | Mohsen Mahmoud
+Omar Nassret   | Mohsen Mahmoud
+Mariam Ahmed   | Omar Osama
+Mazen Khaled   | Mohsen Mahmoud
+Shahd Magdy    | Mazen Khaled
+Kareem Adel    | Mazen Khaled
+
+---------------------------------------------------------------------------
+Q1.12 JOIN + GROUP BY + HAVING
+---------------------------------------------------------------------------
+SELECT p.Pname, SUM(w.hours) AS total_hours
+FROM PROJECT p
+JOIN WORKS_ON w ON p.Pnumber = w.Pno
+GROUP BY p.Pnumber, p.Pname
+HAVING SUM(w.hours) > 20
+ORDER BY total_hours DESC;
+
+Output:
+Pname         | total_hours
+Project Alpha | 41.50
+Project Beta  | 29.50
